@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { useTickets } from "@/context/TicketContext";
 import { sendEmail } from "@/actions/emailActions";
+import { updateTicketInSheet } from "@/actions/sheetActions";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -260,7 +261,76 @@ export default function TicketMasterDetail({ title = "All Tickets", filterDept =
       setEditData({ ...ticket });
       setIsEditing(true);
   };
-  const handleEditSave = () => { updateTicket(selectedTicketId, editData); setIsEditing(false); /* notify("Updated!"); */ };
+  const handleEditSave = async () => { 
+      const oldTicket = tickets.find(t => t.id === selectedTicketId);
+      updateTicket(selectedTicketId, editData); 
+
+      // 1. If assignment changed during edit, send email to Staff
+      if (editData.assignedTo && editData.assignedTo !== oldTicket?.assignedTo) {
+          const assignedUser = users.find(u => u.name === editData.assignedTo);
+          if (assignedUser && assignedUser.email) {
+              try {
+                  await sendEmail({
+                      to: assignedUser.email,
+                      subject: `Ticket #${editData.ticketNo} Assigned to You`,
+                      html: `
+                          <div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+                              <h2 style="color: #2563eb;">Ticket Assignment Update</h2>
+                              <p>Hello <strong>${assignedUser.name}</strong>,</p>
+                              <p>Ticket #${editData.ticketNo} has been assigned to you.</p>
+                              <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
+                              <p><strong>Ticket No:</strong> #${editData.ticketNo}</p>
+                              <p><strong>Description:</strong> ${editData.description}</p>
+                              <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
+                              <p style="font-size: 0.8em; color: #666;">This is an automated notification from the Ticketing System.</p>
+                          </div>
+                      `
+                  });
+              } catch (err) {
+                  console.error("Edit Save Email Error (Assign):", err);
+              }
+          }
+      }
+
+      // 2. If status changed to 'Completed' during edit, send email to Requester
+      if (editData.status === 'Completed' && oldTicket?.status !== 'Completed') {
+          const requester = users.find(u => u.name === editData.requestedBy);
+          if (requester && requester.email) {
+              try {
+                  await sendEmail({
+                      to: requester.email,
+                      subject: `Ticket #${editData.ticketNo} Completed`,
+                      html: `
+                          <div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+                              <h2 style="color: #16a34a;">Ticket Completed</h2>
+                              <p>Hello <strong>${requester.name}</strong>,</p>
+                              <p>Your ticket has been marked as completed via manual modification.</p>
+                              <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
+                              <p><strong>Ticket No:</strong> #${editData.ticketNo}</p>
+                              <p><strong>Description:</strong> ${editData.description}</p>
+                              <p><strong>Status:</strong> Completed</p>
+                              <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
+                              <p style="font-size: 0.8em; color: #666;">This is an automated notification from the Ticketing System.</p>
+                          </div>
+                      `
+                  });
+              } catch (err) {
+                  console.error("Edit Save Email Error (Complete):", err);
+              }
+          }
+      }
+
+      setIsEditing(false); 
+      /* notify("Updated!"); */ 
+
+      // Sync to Google Sheet
+      updateTicketInSheet(editData.ticketNo, editData).then(res => {
+          if (!res.success) {
+              console.error("Google Sheet Update Error:", res.error);
+              alert("Google Sheet sync failed: " + res.error);
+          }
+      });
+  };
   const handleDelete = (id, e) => {
       if (e && e.stopPropagation) e.stopPropagation();
       if(confirm("Delete ticket?")) { deleteTicket(id); if(selectedTicketId === id) setSelectedTicketId(null); /* notify("Deleted."); */ }
@@ -291,10 +361,47 @@ export default function TicketMasterDetail({ title = "All Tickets", filterDept =
       setEditData({ ...ticket, status: 'Assigned', assignedDate: new Date().toISOString().split('T')[0] }); 
       setIsAssignOpen(true); 
   };
-  const handleAssignSave = () => { 
+  const handleAssignSave = async () => { 
       updateTicket(selectedTicketId, editData); 
+      
+      // Send Email Notification to Assigned Staff
+      const assignedUser = users.find(u => u.name === editData.assignedTo);
+      if (assignedUser && assignedUser.email) {
+          try {
+              await sendEmail({
+                  to: assignedUser.email,
+                  subject: `Ticket #${editData.ticketNo} Assigned to You`,
+                  html: `
+                      <div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+                          <h2 style="color: #2563eb;">New Ticket Assignment</h2>
+                          <p>Hello <strong>${assignedUser.name}</strong>,</p>
+                          <p>A new ticket has been assigned to you.</p>
+                          <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
+                          <p><strong>Ticket No:</strong> #${editData.ticketNo}</p>
+                          <p><strong>Date:</strong> ${editData.ticketDate}</p>
+                          <p><strong>Requested By:</strong> ${editData.requestedBy} (${editData.department})</p>
+                          <p><strong>Priority:</strong> <span style="color: ${editData.priority === 'High' ? 'red' : 'inherit'} font-weight: bold;">${editData.priority}</span></p>
+                          <p><strong>Description:</strong> ${editData.description}</p>
+                          <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
+                          <p style="font-size: 0.8em; color: #666;">This is an automated notification from the Ticketing System.</p>
+                      </div>
+                  `
+              });
+          } catch (error) {
+              console.error("Failed to send assignment email:", error);
+          }
+      }
+
       setIsAssignOpen(false); 
       /* notify("Assigned Successfully!"); */ 
+
+      // Sync to Google Sheet
+      updateTicketInSheet(editData.ticketNo, editData).then(res => {
+          if (!res.success) {
+              console.error("Google Sheet Update Error:", res.error);
+              alert("Google Sheet sync failed: " + res.error);
+          }
+      });
   };
 
   const handleCompleteStart = (ticket) => { 
@@ -302,10 +409,45 @@ export default function TicketMasterDetail({ title = "All Tickets", filterDept =
       setEditData({ ...ticket, status: 'Completed', completedOn: new Date().toISOString().split('T')[0] }); 
       setIsCompleteOpen(true); 
   };
-  const handleCompleteSave = () => { 
+  const handleCompleteSave = async () => { 
       updateTicket(selectedTicketId, editData); 
+
+      // Send Email Notification to Requester
+      const requester = users.find(u => u.name === editData.requestedBy);
+      if (requester && requester.email) {
+          try {
+              await sendEmail({
+                  to: requester.email,
+                  subject: `Ticket #${editData.ticketNo} Completed`,
+                  html: `
+                      <div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+                          <h2 style="color: #16a34a;">Ticket Completed</h2>
+                          <p>Hello <strong>${requester.name}</strong>,</p>
+                          <p>Your ticket has been marked as completed.</p>
+                          <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
+                          <p><strong>Ticket No:</strong> #${editData.ticketNo}</p>
+                          <p><strong>Description:</strong> ${editData.description}</p>
+                          <p><strong>Completion Remarks:</strong> ${editData.remarks || "No remarks provided."}</p>
+                          <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
+                          <p style="font-size: 0.8em; color: #666;">This is an automated notification from the Ticketing System.</p>
+                      </div>
+                  `
+              });
+          } catch (error) {
+              console.error("Failed to send completion email:", error);
+          }
+      }
+
       setIsCompleteOpen(false); 
       /* notify("Completed Successfully!"); */ 
+
+      // Sync to Google Sheet
+      updateTicketInSheet(editData.ticketNo, editData).then(res => {
+          if (!res.success) {
+              console.error("Google Sheet Update Error:", res.error);
+              alert("Google Sheet sync failed: " + res.error);
+          }
+      });
   };
 
   const navigateDetail = (dir) => {

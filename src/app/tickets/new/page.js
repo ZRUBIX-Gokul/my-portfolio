@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { useState, useEffect } from "react";
 import { CheckCircle } from "lucide-react";
 import { addTicketToSheet } from "@/actions/sheetActions";
+import { sendEmail } from "@/actions/emailActions";
 
 export default function NewTicketPage() {
   const { addTicket, users, getNextTicketNumber } = useTickets();
@@ -34,9 +35,10 @@ export default function NewTicketPage() {
     // Determine To Dept based on Work Order Type Selection if needed, or just use input
     // Assuming simple mapping for this demo
     
+    const timestampId = String(Date.now());
     const newTicket = {
       ...data,
-      id: data.ticketNo || String(Date.now()), // Using generated number as ID for simplicity
+      id: data.ticketNo || timestampId, // Using timestamp as internal ID
       ticketNo: nextId,
       status: "Requested",
       logs: [{ action: "Created", date: new Date().toISOString(), user: "System" }],
@@ -47,10 +49,36 @@ export default function NewTicketPage() {
     addTicket(newTicket);
 
     // 2. Sync to Google Sheet
-    // We don't await this to keep UI snappy, or we can logic it differently
     addTicketToSheet(newTicket).then(res => {
-        if (!res.success) console.warn("Google Sheet Sync Error:", res.error);
+        if (!res.success) {
+            console.error("Google Sheet Sync Error:", res.error);
+            alert("Google Sheet Sync Failed: " + res.error);
+        }
     });
+
+    // 3. Send Email Notification to Department Staff
+    const deptStaff = users.find(u => u.department === newTicket.toDept && u.role === "Staff");
+    if (deptStaff && deptStaff.email) {
+        sendEmail({
+            to: deptStaff.email,
+            subject: `New Ticket Requested: #${newTicket.ticketNo}`,
+            html: `
+                <div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+                    <h2 style="color: #2563eb;">New Support Request</h2>
+                    <p>Hello <strong>${deptStaff.name}</strong>,</p>
+                    <p>A new ticket has been requested for your department.</p>
+                    <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
+                    <p><strong>Ticket No:</strong> #${newTicket.ticketNo}</p>
+                    <p><strong>Date:</strong> ${newTicket.ticketDate}</p>
+                    <p><strong>From:</strong> ${newTicket.requestedBy} (${newTicket.department})</p>
+                    <p><strong>Priority:</strong> <span style="color: ${newTicket.priority === 'High' ? 'red' : 'inherit'}; font-weight: bold;">${newTicket.priority}</span></p>
+                    <p><strong>Description:</strong> ${newTicket.description}</p>
+                    <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
+                    <p style="font-size: 0.8em; color: #666;">This is an automated notification from the Ticketing System.</p>
+                </div>
+            `
+        }).catch(err => console.error("New Ticket Email Error:", err));
+    }
 
     setSuccess(true);
     setTimeout(() => {
