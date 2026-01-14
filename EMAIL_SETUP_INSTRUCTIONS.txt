@@ -1,0 +1,22 @@
+IMPORTANT: TO ENABLE REAL EMAIL SENDING
+
+1. Create a new file named ".env.local" in this folder (e:\Gokul Zrubix\my-portfolio\).
+2. Copy and paste the following content into it:
+
+EMAIL_USER=gokulsenthil43@gmail.com
+EMAIL_PASS=YOUR_GMAIL_APP_PASSWORD
+
+---------------------------------------------------------
+HOW TO GET YOUR GMAIL APP PASSWORD:
+1. Go to your Google Account Settings -> Security.
+2. Enable "2-Step Verification" if not already enabled.
+3. Search for "App Passwords" in the search bar at the top/
+4. Create a new App Password (App: Mail, Device: Other).
+5. Copy the 16-character code it gives you.
+6. Paste that code in place of YOUR_GMAIL_APP_PASSWORD above.
+7. Save the file and Restart the server (Ctrl+C, then npm run dev).
+---------------------------------------------------------
+
+UNTIL YOU DO THIS:
+The app is in "Simulation Mode". Emails will NOT differ to your inbox.
+Instead, you will see a popup saying "(Simulation)" and the email content will be logged in your VS Code Terminal.
