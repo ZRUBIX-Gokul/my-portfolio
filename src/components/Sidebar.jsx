@@ -24,12 +24,17 @@ import { cn } from "@/lib/utils";
 
 import { useSettings } from "@/context/SettingsContext";
 import { useAuth } from "@/context/AuthContext";
+import { usePortalUsers } from "@/context/PortalUserContext";
 
 export function Sidebar() {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(true);
   const { sidebarLayout } = useSettings();
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
+  const { getUserModules } = usePortalUsers();
+
+  // Get allowed modules if user is a portal user
+  const allowedModules = user?.isPortalUser ? getUserModules(user.id) : null;
 
   const iconMap = {
     entry: PlusCircle,
@@ -55,6 +60,30 @@ export function Sidebar() {
         { name: "Settings", href: "/settings", icon: Settings },
     ]}
   ];
+
+  // Filter sections based on permissions
+  const filteredSections = menuSections.map(section => {
+    // If regular user (not portal), show everything
+    if (!user?.isPortalUser) return section;
+
+    // Filter items for portal users
+    const filteredItems = section.items.filter(item => {
+      // Check if item route is in allowed modules
+      // Allowed modules is an array of module objects { route: "...", ... }
+      return allowedModules.some(module => {
+        // If module requires exact match (most do), check exact equality
+        if (module.exact) {
+          return module.route === item.href;
+        }
+        
+        // precise match or sub-route match (e.g. /tickets/new matches /tickets/new)
+        // Also handle the case where module.route is the base of item.href
+        return module.route === item.href || (module.route !== "/" && item.href.startsWith(module.route));
+      });
+    });
+
+    return { ...section, items: filteredItems };
+  }).filter(section => section.items.length > 0); // Remove empty sections
 
   return (
     <>
@@ -88,7 +117,7 @@ export function Sidebar() {
 
             {/* Menu */}
             <div className="flex-1 overflow-y-auto py-6 px-3 space-y-6">
-                {menuSections.map((section, idx) => (
+                {filteredSections.map((section, idx) => (
                     <div key={idx}>
                          <div className={cn("px-4 mb-2 text-xs font-semibold text-slate-400 uppercase tracking-wider transition-opacity duration-300",
                              !isOpen && "lg:opacity-0 lg:group-hover:opacity-100 lg:hidden lg:group-hover:block"

@@ -20,8 +20,9 @@ import {
   Search
 } from "lucide-react";
 import { useTickets } from "@/context/TicketContext";
+import { useAuth } from "@/context/AuthContext";
+import { usePortalUsers } from "@/context/PortalUserContext";
 import { sendEmail } from "@/actions/emailActions";
-import { updateTicketInSheet } from "@/actions/sheetActions";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -79,8 +80,21 @@ const HeaderCell = ({ label, columnKey, width, sortConfig, onSort, onGroup, onHi
     );
 };
 
-export default function TicketMasterDetail({ title = "All Tickets", filterDept = null, filterStatus = null }) {
+export default function TicketMasterDetail({ title = "All Tickets", filterDept = null, filterStatus = null, moduleId = null }) {
   const { tickets, users, updateTicket, deleteTicket, addTicket } = useTickets();
+  const { user } = useAuth();
+  const { hasPermission } = usePortalUsers();
+
+  // Permission Checks
+  // If no moduleId is provided, default to allowing everything (or you could default to blocking, but for backward compatibility we allow)
+  // If user is NOT a portal user, they have full access (or default app logic)
+  const isPortalUser = user?.isPortalUser;
+  
+  const canEdit = !isPortalUser || (moduleId && hasPermission(user.id, moduleId, 'edit'));
+  const canDelete = !isPortalUser || (moduleId && hasPermission(user.id, moduleId, 'delete'));
+  // Mapping 'More' permission to Duplicate and Print/Export for now
+  const canMore = !isPortalUser || (moduleId && hasPermission(user.id, moduleId, 'more'));
+
   const [selectedTicketId, setSelectedTicketId] = useState(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   
@@ -321,15 +335,7 @@ export default function TicketMasterDetail({ title = "All Tickets", filterDept =
       }
 
       setIsEditing(false); 
-      /* notify("Updated!"); */ 
-
-      // Sync to Google Sheet
-      updateTicketInSheet(editData.ticketNo, editData).then(res => {
-          if (!res.success) {
-              console.error("Google Sheet Update Error:", res.error);
-              alert("Google Sheet sync failed: " + res.error);
-          }
-      });
+      /* notify("Updated!"); */
   };
   const handleDelete = (id, e) => {
       if (e && e.stopPropagation) e.stopPropagation();
@@ -393,15 +399,7 @@ export default function TicketMasterDetail({ title = "All Tickets", filterDept =
       }
 
       setIsAssignOpen(false); 
-      /* notify("Assigned Successfully!"); */ 
-
-      // Sync to Google Sheet
-      updateTicketInSheet(editData.ticketNo, editData).then(res => {
-          if (!res.success) {
-              console.error("Google Sheet Update Error:", res.error);
-              alert("Google Sheet sync failed: " + res.error);
-          }
-      });
+      /* notify("Assigned Successfully!"); */
   };
 
   const handleCompleteStart = (ticket) => { 
@@ -439,15 +437,13 @@ export default function TicketMasterDetail({ title = "All Tickets", filterDept =
       }
 
       setIsCompleteOpen(false); 
-      /* notify("Completed Successfully!"); */ 
+      /* notify("Completed Successfully!"); */
+  };
 
-      // Sync to Google Sheet
-      updateTicketInSheet(editData.ticketNo, editData).then(res => {
-          if (!res.success) {
-              console.error("Google Sheet Update Error:", res.error);
-              alert("Google Sheet sync failed: " + res.error);
-          }
-      });
+  const handleCloseTicket = (ticket) => {
+      if (confirm(`Close Ticket #${ticket.ticketNo}? This will mark it as closed.`)) {
+          updateTicket(ticket.id, { status: 'Closed', closedOn: new Date().toISOString().split('T')[0] });
+      }
   };
 
   const navigateDetail = (dir) => {
@@ -468,39 +464,52 @@ export default function TicketMasterDetail({ title = "All Tickets", filterDept =
            {/* NEW BULK ACTIONS (Top Left) */}
            {selectedIds.size > 0 && (
                <div className="flex items-center gap-2 mb-4 animation-fade-in flex-wrap">
-                    <button onClick={() => {
-                       const first = tickets.find(t => selectedIds.has(t.id));
-                       if(first) handleEditStart(first);
-                    }} className="px-3 py-1.5 border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 rounded text-xs font-semibold flex items-center gap-1.5 hover:bg-gray-50 dark:hover:bg-zinc-700 cursor-pointer shadow-sm">
-                       <Edit className="w-3.5 h-3.5" /> Edit
-                    </button>
-                    <button onClick={handleBulkDuplicate} className="px-3 py-1.5 border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 rounded text-xs font-semibold flex items-center gap-1.5 hover:bg-gray-50 dark:hover:bg-zinc-700 cursor-pointer shadow-sm">
-                       <Copy className="w-3.5 h-3.5" /> Duplicate
-                    </button>
-                    <button onClick={handleBulkDelete} className="px-3 py-1.5 border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 rounded text-xs font-semibold flex items-center gap-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 cursor-pointer shadow-sm">
-                       <Trash2 className="w-3.5 h-3.5" /> Delete
-                    </button>
-                    <DropdownMenu>
-                       <DropdownMenuTrigger asChild>
-                           <button className="px-3 py-1.5 border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 rounded text-xs font-semibold flex items-center gap-1.5 hover:bg-gray-50 dark:hover:bg-zinc-700 cursor-pointer shadow-sm">
-                               Print <ChevronDown className="w-3.5 h-3.5" />
-                           </button>
-                       </DropdownMenuTrigger>
-                       <DropdownMenuContent className="bg-white">
-                           <DropdownMenuItem onClick={handleBulkPrint} className="cursor-pointer">Print Selected</DropdownMenuItem>
-                       </DropdownMenuContent>
-                    </DropdownMenu>
-                    <DropdownMenu>
-                       <DropdownMenuTrigger asChild>
-                           <button className="px-3 py-1.5 border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 rounded text-xs font-semibold flex items-center gap-1.5 hover:bg-gray-50 dark:hover:bg-zinc-700 cursor-pointer shadow-sm">
-                               Export <ChevronDown className="w-3.5 h-3.5" />
-                           </button>
-                       </DropdownMenuTrigger>
-                       <DropdownMenuContent className="bg-white">
-                           <DropdownMenuItem className="cursor-pointer">Export as PDF</DropdownMenuItem>
-                           <DropdownMenuItem className="cursor-pointer">Export as Excel</DropdownMenuItem>
-                       </DropdownMenuContent>
-                    </DropdownMenu>
+                    {canEdit && (
+                      <button onClick={() => {
+                         const first = tickets.find(t => selectedIds.has(t.id));
+                         if(first) handleEditStart(first);
+                      }} className="px-3 py-1.5 border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 rounded text-xs font-semibold flex items-center gap-1.5 hover:bg-gray-50 dark:hover:bg-zinc-700 cursor-pointer shadow-sm">
+                         <Edit className="w-3.5 h-3.5" /> Edit
+                      </button>
+                    )}
+                    
+                    {canMore && (
+                      <button onClick={handleBulkDuplicate} className="px-3 py-1.5 border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 rounded text-xs font-semibold flex items-center gap-1.5 hover:bg-gray-50 dark:hover:bg-zinc-700 cursor-pointer shadow-sm">
+                         <Copy className="w-3.5 h-3.5" /> Duplicate
+                      </button>
+                    )}
+                    
+                    {canDelete && (
+                      <button onClick={handleBulkDelete} className="px-3 py-1.5 border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 rounded text-xs font-semibold flex items-center gap-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 cursor-pointer shadow-sm">
+                         <Trash2 className="w-3.5 h-3.5" /> Delete
+                      </button>
+                    )}
+
+                    {canMore && (
+                      <>
+                        <DropdownMenu>
+                           <DropdownMenuTrigger asChild>
+                               <button className="px-3 py-1.5 border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 rounded text-xs font-semibold flex items-center gap-1.5 hover:bg-gray-50 dark:hover:bg-zinc-700 cursor-pointer shadow-sm">
+                                   Print <ChevronDown className="w-3.5 h-3.5" />
+                               </button>
+                           </DropdownMenuTrigger>
+                           <DropdownMenuContent className="bg-white">
+                               <DropdownMenuItem onClick={handleBulkPrint} className="cursor-pointer">Print Selected</DropdownMenuItem>
+                           </DropdownMenuContent>
+                        </DropdownMenu>
+                        <DropdownMenu>
+                           <DropdownMenuTrigger asChild>
+                               <button className="px-3 py-1.5 border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 rounded text-xs font-semibold flex items-center gap-1.5 hover:bg-gray-50 dark:hover:bg-zinc-700 cursor-pointer shadow-sm">
+                                   Export <ChevronDown className="w-3.5 h-3.5" />
+                               </button>
+                           </DropdownMenuTrigger>
+                           <DropdownMenuContent className="bg-white">
+                               <DropdownMenuItem className="cursor-pointer">Export as PDF</DropdownMenuItem>
+                               <DropdownMenuItem className="cursor-pointer">Export as Excel</DropdownMenuItem>
+                           </DropdownMenuContent>
+                        </DropdownMenu>
+                      </>
+                    )}
                </div>
            )}
 
@@ -600,12 +609,13 @@ export default function TicketMasterDetail({ title = "All Tickets", filterDept =
                      <th className="px-4 py-3 w-[90px] bg-white dark:bg-zinc-900 border-b border-gray-100 dark:border-zinc-800">Assign</th>
                      <th className="px-4 py-3 w-[90px] bg-white dark:bg-zinc-900 border-b border-gray-100 dark:border-zinc-800">Modify</th>
                      <th className="px-4 py-3 w-[90px] bg-white dark:bg-zinc-900 border-b border-gray-100 dark:border-zinc-800">Complete</th>
+                     <th className="px-4 py-3 w-[90px] bg-white dark:bg-zinc-900 border-b border-gray-100 dark:border-zinc-800">Close</th>
                      
                      {visibleColumns.status && <HeaderCell label="Ticket Status" columnKey="status" sortConfig={sortConfig} onSort={handleSort} onGroup={handleGroup} onHide={handleHideColumn} />}
                      {visibleColumns.ticketNo && <HeaderCell label="Ticket No" columnKey="ticketNo" sortConfig={sortConfig} onSort={handleSort} onGroup={handleGroup} onHide={handleHideColumn} />}
                      {visibleColumns.ticketDate && <HeaderCell label="Ticket Date" columnKey="ticketDate" sortConfig={sortConfig} onSort={handleSort} onGroup={handleGroup} onHide={handleHideColumn} />}
                      {visibleColumns.requestedBy && <HeaderCell label="Requested By" columnKey="requestedBy" sortConfig={sortConfig} onSort={handleSort} onGroup={handleGroup} onHide={handleHideColumn} />}
-                     {visibleColumns.requestedDept && <HeaderCell label="Requested Dept" columnKey="department" sortConfig={sortConfig} onSort={handleSort} onGroup={handleGroup} onHide={handleHideColumn} />}
+                     {visibleColumns.requestedDept && <HeaderCell label="Requested Dept" columnKey="department" sortConfig={sortConfig} onSort={handleGroup} onHide={handleHideColumn} />}
                      {visibleColumns.toDept && <HeaderCell label="To Dept" columnKey="toDept" sortConfig={sortConfig} onSort={handleSort} onGroup={handleGroup} onHide={handleHideColumn} />}
                      {visibleColumns.assignedTo && <HeaderCell label="Assigned To" columnKey="assignedTo" sortConfig={sortConfig} onSort={handleSort} onGroup={handleGroup} onHide={handleHideColumn} />}
                      {visibleColumns.assignedDate && <HeaderCell label="Assigned Date" columnKey="assignedDate" sortConfig={sortConfig} onSort={handleSort} onGroup={handleGroup} onHide={handleHideColumn} />}
@@ -632,6 +642,8 @@ export default function TicketMasterDetail({ title = "All Tickets", filterDept =
                         onDelete={handleDelete}
                         onAssign={() => handleAssignStart(t)}
                         onComplete={() => handleCompleteStart(t)}
+                        onClose={() => handleCloseTicket(t)}
+                        permissions={{ canEdit, canDelete, canMore }}
                     />
                  ))}
 
@@ -664,6 +676,8 @@ export default function TicketMasterDetail({ title = "All Tickets", filterDept =
                                     onDelete={handleDelete}
                                     onAssign={() => handleAssignStart(t)}
                                     onComplete={() => handleCompleteStart(t)}
+                                    onClose={() => handleCloseTicket(t)}
+                                    permissions={{ canEdit, canDelete, canMore }}
                                 />
                              ))}
                          </React.Fragment>
@@ -702,23 +716,31 @@ export default function TicketMasterDetail({ title = "All Tickets", filterDept =
                           </button>
                       </div>
                       <div className="flex items-center gap-2">
-                          <button onClick={(e) => handleEditStart(selectedTicket, e)} className="px-3 py-1.5 border border-gray-200 dark:border-zinc-700 rounded text-xs font-semibold flex items-center gap-1.5 hover:bg-gray-50 dark:hover:bg-zinc-800 cursor-pointer">
-                              <Edit className="w-3.5 h-3.5" /> Edit
-                          </button>
-                          <button onClick={(e) => handleDuplicate(selectedTicket, e)} className="px-3 py-1.5 border border-gray-200 dark:border-zinc-700 rounded text-xs font-semibold flex items-center gap-1.5 hover:bg-gray-50 dark:hover:bg-zinc-800 cursor-pointer">
-                              <Copy className="w-3.5 h-3.5" /> Duplicate
-                          </button>
-                          <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <button className="px-3 py-1.5 border border-gray-200 dark:border-zinc-700 rounded text-xs font-semibold flex items-center gap-1.5 hover:bg-gray-50 dark:hover:bg-zinc-800 cursor-pointer">
-                                        More <ChevronDown className="w-3.5 h-3.5" />
-                                    </button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="bg-white border">
-                                    <DropdownMenuItem onClick={() => window.print()} className="cursor-pointer font-medium"><Printer className="w-3.5 h-3.5 mr-2"/> Print Details</DropdownMenuItem>
-                                    <DropdownMenuItem className="cursor-pointer font-medium text-red-600" onClick={(e) => handleDelete(selectedTicket.id, e)}><Trash2 className="w-3.5 h-3.5 mr-2"/> Delete</DropdownMenuItem>
-                                </DropdownMenuContent>
-                          </DropdownMenu>
+                          {canEdit && (
+                            <button onClick={(e) => handleEditStart(selectedTicket, e)} className="px-3 py-1.5 border border-gray-200 dark:border-zinc-700 rounded text-xs font-semibold flex items-center gap-1.5 hover:bg-gray-50 dark:hover:bg-zinc-800 cursor-pointer">
+                                <Edit className="w-3.5 h-3.5" /> Edit
+                            </button>
+                          )}
+                          {canMore && (
+                            <button onClick={(e) => handleDuplicate(selectedTicket, e)} className="px-3 py-1.5 border border-gray-200 dark:border-zinc-700 rounded text-xs font-semibold flex items-center gap-1.5 hover:bg-gray-50 dark:hover:bg-zinc-800 cursor-pointer">
+                                <Copy className="w-3.5 h-3.5" /> Duplicate
+                            </button>
+                          )}
+                          
+                          {(canMore || canDelete) && (
+                            <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                      <button className="px-3 py-1.5 border border-gray-200 dark:border-zinc-700 rounded text-xs font-semibold flex items-center gap-1.5 hover:bg-gray-50 dark:hover:bg-zinc-800 cursor-pointer">
+                                          More <ChevronDown className="w-3.5 h-3.5" />
+                                      </button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end" className="bg-white border">
+                                      {canMore && <DropdownMenuItem onClick={() => window.print()} className="cursor-pointer font-medium"><Printer className="w-3.5 h-3.5 mr-2"/> Print Details</DropdownMenuItem>}
+                                      {canDelete && <DropdownMenuItem className="cursor-pointer font-medium text-red-600" onClick={(e) => handleDelete(selectedTicket.id, e)}><Trash2 className="w-3.5 h-3.5 mr-2"/> Delete</DropdownMenuItem>}
+                                  </DropdownMenuContent>
+                            </DropdownMenu>
+                          )}
+                          
                           <button onClick={closeDetail} className="ml-2 hover:bg-gray-100 p-1 rounded-full transition-colors cursor-pointer">
                               <X className="w-5 h-5 text-gray-400" />
                           </button>
@@ -963,7 +985,8 @@ export default function TicketMasterDetail({ title = "All Tickets", filterDept =
 }
 
 // --- SUB-COMPONENT: TICKET ROW (To reduce render complexity) ---
-function TicketRow({ ticket: t, isSelected, onSelect, onClick, visibleColumns, onEdit, onDuplicate, onDelete, onAssign, onComplete }) {
+function TicketRow({ ticket: t, isSelected, onSelect, onClick, visibleColumns, onEdit, onDuplicate, onDelete, onAssign, onComplete, onClose, permissions = { canEdit: true, canDelete: true, canMore: true } }) {
+    const { canEdit, canDelete, canMore } = permissions;
     return (
         <tr 
             onClick={onClick}
@@ -976,28 +999,37 @@ function TicketRow({ ticket: t, isSelected, onSelect, onClick, visibleColumns, o
              </td>
 
              <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <button className="p-1 hover:bg-gray-200 rounded-full text-gray-400 cursor-pointer">
-                            <MoreHorizontal className="w-4 h-4"/>
-                        </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start" className="bg-white border shadow-lg">
-                        <DropdownMenuItem onClick={(e) => onEdit(t, e)} className="cursor-pointer"><Edit className="w-4 h-4 mr-2"/> Edit</DropdownMenuItem>
-                        <DropdownMenuItem onClick={(e) => onDuplicate(t, e)} className="cursor-pointer"><Copy className="w-4 h-4 mr-2"/> Duplicate</DropdownMenuItem>
-                        <DropdownMenuItem onClick={(e) => onDelete(t.id, e)} className="text-red-600 cursor-pointer"><Trash2 className="w-4 h-4 mr-2"/> Delete</DropdownMenuItem>
-                    </DropdownMenuContent>
-                </DropdownMenu>
+                {(canEdit || canMore || canDelete) ? (
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <button className="p-1 hover:bg-gray-200 rounded-full text-gray-400 cursor-pointer">
+                                <MoreHorizontal className="w-4 h-4"/>
+                            </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start" className="bg-white border shadow-lg">
+                            {canEdit && <DropdownMenuItem onClick={(e) => onEdit(t, e)} className="cursor-pointer"><Edit className="w-4 h-4 mr-2"/> Edit</DropdownMenuItem>}
+                            {canMore && <DropdownMenuItem onClick={(e) => onDuplicate(t, e)} className="cursor-pointer"><Copy className="w-4 h-4 mr-2"/> Duplicate</DropdownMenuItem>}
+                            {canDelete && <DropdownMenuItem onClick={(e) => onDelete(t.id, e)} className="text-red-600 cursor-pointer"><Trash2 className="w-4 h-4 mr-2"/> Delete</DropdownMenuItem>}
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                ) : <span className="text-gray-300">-</span>}
              </td>
 
              <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
-                 <button onClick={onAssign} disabled={t.status === 'Completed' || t.status === 'Assigned'} className={`px-3 py-1 text-xs border rounded w-full ${t.status === 'Assigned' || t.status === 'Completed' ? 'bg-gray-50 text-gray-300 cursor-not-allowed' : 'bg-white text-blue-600 hover:bg-blue-50 cursor-pointer'}`}>Assign</button>
+                 <button onClick={onAssign} disabled={t.status === 'Completed' || t.status === 'Assigned' || t.status === 'Closed'} className={`px-3 py-1 text-xs border rounded w-full ${t.status === 'Assigned' || t.status === 'Completed' || t.status === 'Closed' ? 'bg-gray-50 text-gray-300 cursor-not-allowed' : 'bg-white text-blue-600 hover:bg-blue-50 cursor-pointer'}`}>Assign</button>
              </td>
              <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
-                 <button onClick={(e)=>onEdit(t,e)} disabled={t.status === 'Closed'} className="px-3 py-1 text-xs border rounded w-full bg-white text-amber-600 hover:bg-amber-50 cursor-pointer">Modify</button>
+                 {canEdit ? (
+                    <button onClick={(e)=>onEdit(t,e)} disabled={t.status === 'Closed'} className="px-3 py-1 text-xs border rounded w-full bg-white text-amber-600 hover:bg-amber-50 cursor-pointer">Modify</button>
+                 ) : (
+                    <button disabled className="px-3 py-1 text-xs border rounded w-full bg-gray-50 text-gray-300 cursor-not-allowed">Locked</button>
+                 )}
              </td>
              <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
-                 <button onClick={onComplete} disabled={t.status !== 'Assigned'} className={`px-3 py-1 text-xs border rounded w-full ${t.status !== 'Assigned' ? 'bg-gray-50 text-gray-300 cursor-not-allowed' : 'bg-white text-green-600 hover:bg-green-50 cursor-pointer'}`}>Complete</button>
+                  <button onClick={onComplete} disabled={t.status !== 'Assigned'} className={`px-3 py-1 text-xs border rounded w-full ${t.status !== 'Assigned' ? 'bg-gray-50 text-gray-300 cursor-not-allowed' : 'bg-white text-green-600 hover:bg-green-50 cursor-pointer'}`}>Complete</button>
+              </td>
+             <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+                 <button onClick={onClose} disabled={t.status !== 'Completed'} className={`px-3 py-1 text-xs border rounded w-full ${t.status !== 'Completed' ? 'bg-gray-50 text-gray-300 cursor-not-allowed' : 'bg-white text-purple-600 hover:bg-purple-50 cursor-pointer'}`}>Close</button>
              </td>
 
              {visibleColumns.status && (

@@ -6,6 +6,7 @@ import { Sidebar } from "@/components/Sidebar";
 import { TicketProvider } from "@/context/TicketContext";
 import { SettingsProvider } from "@/context/SettingsContext";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
+import { PortalUserProvider } from "@/context/PortalUserContext";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 
@@ -34,7 +35,9 @@ export default function RootLayout({ children }) {
         <AuthProvider>
           <SettingsProvider>
             <TicketProvider>
-              <AppContent>{children}</AppContent>
+              <PortalUserProvider>
+                <AppContent>{children}</AppContent>
+              </PortalUserProvider>
             </TicketProvider>
           </SettingsProvider>
         </AuthProvider>
@@ -49,7 +52,7 @@ function AppContent({ children }) {
   const router = useRouter();
 
   useEffect(() => {
-    if (!loading && !isAuthenticated && pathname !== "/login") {
+    if (!loading && !isAuthenticated && pathname !== "/login" && !pathname.startsWith("/portal/setup")) {
       router.replace("/login");
     }
   }, [isAuthenticated, loading, pathname, router]);
@@ -61,8 +64,8 @@ function AppContent({ children }) {
     return null; // Will redirect via useEffect
   }
 
-  // If on login page, just show the page without sidebar
-  if (pathname === "/login") {
+  // If on login page or portal setup, just show the page without sidebar
+  if (pathname === "/login" || pathname === "/portal/setup" || pathname.startsWith("/portal/setup")) {
     return <>{children}</>;
   }
 

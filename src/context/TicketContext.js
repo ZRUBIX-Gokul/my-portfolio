@@ -29,7 +29,7 @@ export function TicketProvider({ children }) {
     if (savedTickets) {
       setTickets(JSON.parse(savedTickets));
     } else {
-      setTickets([]);
+      setTickets(initialTickets);
     }
 
     if (savedUsers) {
@@ -39,6 +39,64 @@ export function TicketProvider({ children }) {
     }
     setIsLoaded(true);
   }, []);
+
+  // Initial Tickets for Demo/Testing
+  const initialTickets = [
+    {
+      id: "101",
+      ticketNo: "101",
+      ticketDate: new Date().toISOString().split('T')[0],
+      requestedBy: "Nithilla",
+      department: "HR",
+      toDept: "ICT",
+      description: "Internet connection is slow in HR cabin",
+      priority: "High",
+      status: "Requested",
+      history: []
+    },
+    {
+      id: "102",
+      ticketNo: "102",
+      ticketDate: new Date().toISOString().split('T')[0],
+      requestedBy: "Sanjay",
+      department: "Biomedical",
+      toDept: "Maintenance",
+      description: "AC leaking in Lab 2",
+      priority: "Medium",
+      status: "Assigned",
+      assignedTo: "StarGokul",
+      assignedDate: new Date().toISOString().split('T')[0],
+      history: []
+    },
+    {
+      id: "103",
+      ticketNo: "103",
+      ticketDate: new Date().toISOString().split('T')[0],
+      requestedBy: "Admin User",
+      department: "IT",
+      toDept: "Bio-Medical",
+      description: "X-Ray machine calibration required",
+      priority: "Critical",
+      status: "Requested",
+      history: []
+    },
+    {
+      id: "104",
+      ticketNo: "104",
+      ticketDate: new Date().toISOString().split('T')[0],
+      requestedBy: "John Doe",
+      department: "ICT",
+      toDept: "ICT",
+      description: "Server backup failed",
+      priority: "High",
+      status: "Completed",
+      assignedTo: "John Doe",
+      assignedDate: new Date().toISOString().split('T')[0],
+      completedBy: "John Doe",
+      completedOn: new Date().toISOString().split('T')[0],
+      history: []
+    }
+  ];
 
   // Save to LocalStorage whenever state changes
   useEffect(() => {

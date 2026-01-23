@@ -18,13 +18,17 @@ export const SettingsProvider = ({ children }) => {
   const [backgroundColor, setBackgroundColor] = useState("#f9fafb");
   const [sidebarLayout, setSidebarLayout] = useState([
     { id: "entry", name: "Ticket Entry Form", href: "/tickets/new", type: "form" },
+    { id: "total", name: "Total Tickets Report", href: "/tickets", type: "report" },
+    { id: "ict", name: "ICT Tickets", href: "/tickets/ict", type: "report" },
+    { id: "biomedical", name: "Bio-Medical Tickets", href: "/tickets/biomedical", type: "report" },
+    { id: "maintenance_tickets", name: "Maintenance Tickets", href: "/tickets/maintenance", type: "report" },
+    { id: "housekeeping_tickets", name: "House Keeping Tickets", href: "/tickets/housekeeping", type: "report" },
     { id: "it", name: "IT Ticket Report", href: "/reports/it", type: "report" },
     { id: "maintenance", name: "Maintenance Ticket Report", href: "/reports/maintenance", type: "report" },
     { id: "requested", name: "Requested Tickets Report", href: "/reports/requested", type: "report" },
     { id: "assigned", name: "Assigned Tickets Report", href: "/reports/assigned", type: "report" },
     { id: "completed", name: "Completed Tickets Report", href: "/reports/completed", type: "report" },
     { id: "closed", name: "Closed Tickets Report", href: "/reports/closed", type: "report" },
-    { id: "total", name: "Total Tickets Report", href: "/tickets", type: "report" },
   ]);
   const [mounted, setMounted] = useState(false);
 
@@ -33,13 +37,17 @@ export const SettingsProvider = ({ children }) => {
     const saved = localStorage.getItem("app_settings");
     const defaultLayout = [
       { id: "entry", name: "Ticket Entry Form", href: "/tickets/new", type: "form" },
+      { id: "total", name: "Total Tickets Report", href: "/tickets", type: "report" },
+      { id: "ict", name: "ICT Tickets", href: "/tickets/ict", type: "report" },
+      { id: "biomedical", name: "Bio-Medical Tickets", href: "/tickets/biomedical", type: "report" },
+      { id: "maintenance_tickets", name: "Maintenance Tickets", href: "/tickets/maintenance", type: "report" },
+      { id: "housekeeping_tickets", name: "House Keeping Tickets", href: "/tickets/housekeeping", type: "report" },
       { id: "it", name: "IT Ticket Report", href: "/reports/it", type: "report" },
       { id: "maintenance", name: "Maintenance Ticket Report", href: "/reports/maintenance", type: "report" },
       { id: "requested", name: "Requested Tickets Report", href: "/reports/requested", type: "report" },
       { id: "assigned", name: "Assigned Tickets Report", href: "/reports/assigned", type: "report" },
       { id: "completed", name: "Completed Tickets Report", href: "/reports/completed", type: "report" },
       { id: "closed", name: "Closed Tickets Report", href: "/reports/closed", type: "report" },
-      { id: "total", name: "Total Tickets Report", href: "/tickets", type: "report" },
     ];
 
     if (saved) {

@@ -3,5 +3,5 @@
 import TicketMasterDetail from "@/components/TicketMasterDetail";
 
 export default function TicketsListPage() {
-  return <TicketMasterDetail title="All Tickets" />;
+  return <TicketMasterDetail title="All Tickets" moduleId="all_tickets" />;
 }

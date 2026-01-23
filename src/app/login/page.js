@@ -2,12 +2,17 @@
 
 import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { usePortalUsers } from "@/context/PortalUserContext";
 import { Phone, Lock, ArrowRight, CheckCircle2, Loader2, Smartphone } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export default function LoginPage() {
   const { login } = useAuth();
+  const { verifyPortalUserLogin } = usePortalUsers();
+  const [loginType, setLoginType] = useState("staff"); // "staff" or "portal"
   const [step, setStep] = useState(1); // 1: Mobile, 2: OTP
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState(["", "", "", ""]);
   const [isLoading, setIsLoading] = useState(false);
@@ -41,6 +46,24 @@ export default function LoginPage() {
     }
   };
 
+  const handlePortalLogin = (e) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError("");
+
+    // Small delay to simulate network
+    setTimeout(() => {
+      const result = verifyPortalUserLogin(email, password);
+      setIsLoading(false);
+      
+      if (result.success) {
+        login({ ...result.user, isPortalUser: true, name: result.user.email.split('@')[0] });
+      } else {
+        setError(result.message || "Invalid email or password");
+      }
+    }, 1000);
+  };
+
   const handleVerifyOtp = async (e) => {
     e.preventDefault();
     const otpValue = otp.join("");
@@ -56,7 +79,7 @@ export default function LoginPage() {
     setTimeout(() => {
       setIsLoading(false);
       if (otpValue === "1234") { // Mock OTP
-        login({ phone, name: "Gokul User", role: "Manager" });
+        login({ phone, name: "Gokul User", role: "Manager", isPortalUser: false });
       } else {
         setError("Invalid OTP. Try '1234'");
       }
@@ -77,83 +100,146 @@ export default function LoginPage() {
             </div>
             <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight">Welcome Back</h1>
             <p className="text-gray-500 dark:text-gray-400 mt-2">Sign in to your dashboard securely</p>
+
+            <div className="flex bg-gray-100 dark:bg-zinc-800 p-1 rounded-xl mt-6">
+              <button
+                onClick={() => { setLoginType("staff"); setError(""); }}
+                className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${
+                  loginType === "staff" 
+                    ? "bg-white dark:bg-zinc-700 shadow-sm text-gray-900 dark:text-white" 
+                    : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                }`}
+              >
+                Staff Login
+              </button>
+              <button
+                onClick={() => { setLoginType("portal"); setError(""); }}
+                className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${
+                  loginType === "portal" 
+                    ? "bg-white dark:bg-zinc-700 shadow-sm text-gray-900 dark:text-white" 
+                    : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                }`}
+              >
+                Portal Login
+              </button>
+            </div>
           </div>
 
           <div className="p-8 pt-0">
-            {step === 1 ? (
-              <form onSubmit={handleSendOtp} className="space-y-6 animate-in slide-in-from-left duration-300">
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold text-gray-700 dark:text-gray-300 ml-1">Mobile Number</label>
-                  <div className="relative group">
-                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-blue-500 transition-colors">
-                      <Smartphone className="w-5 h-5" />
+            {loginType === "staff" ? (
+              step === 1 ? (
+                <form onSubmit={handleSendOtp} className="space-y-6 animate-in slide-in-from-left duration-300">
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-gray-700 dark:text-gray-300 ml-1">Mobile Number</label>
+                    <div className="relative group">
+                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-blue-500 transition-colors">
+                        <Smartphone className="w-5 h-5" />
+                      </div>
+                      <input
+                        type="tel"
+                        placeholder="Enter 10 digit number"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        className="block w-full pl-11 pr-4 py-4 bg-gray-50 dark:bg-zinc-800 border-2 border-transparent focus:border-blue-500 dark:focus:border-blue-500 rounded-2xl outline-none transition-all text-lg font-medium tracking-wide"
+                      />
                     </div>
+                    {error && <p className="text-red-500 text-xs mt-1 ml-1">{error}</p>}
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isLoading}
+                    className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-2xl py-4 font-bold text-lg shadow-lg shadow-blue-500/20 transition-all flex items-center justify-center gap-2 group"
+                  >
+                    {isLoading ? (
+                      <Loader2 className="w-6 h-6 animate-spin" />
+                    ) : (
+                      <>
+                        Send OTP <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                      </>
+                    )}
+                  </button>
+                </form>
+              ) : (
+                <form onSubmit={handleVerifyOtp} className="space-y-8 animate-in slide-in-from-right duration-300">
+                  <div className="text-center space-y-2">
+                    <div className="inline-flex items-center gap-2 text-blue-600 bg-blue-50 dark:bg-blue-900/20 px-4 py-2 rounded-full text-sm font-semibold">
+                      <CheckCircle2 className="w-4 h-4" /> Code sent to {phone}
+                    </div>
+                    <button onClick={() => setStep(1)} className="block w-full text-xs text-blue-500 hover:underline">Change number?</button>
+                  </div>
+
+                  <div className="flex justify-between gap-3">
+                    {otp.map((digit, idx) => (
+                      <input
+                        key={idx}
+                        id={`otp-${idx}`}
+                        type="text"
+                        maxLength={1}
+                        value={digit}
+                        onChange={(e) => handleOtpChange(idx, e.target.value)}
+                        className="w-16 h-16 text-center text-3xl font-bold bg-gray-50 dark:bg-zinc-800 border-2 border-transparent focus:border-blue-500 rounded-2xl outline-none transition-all"
+                      />
+                    ))}
+                  </div>
+
+                  {error && <p className="text-red-500 text-center text-sm font-medium">{error}</p>}
+
+                  <div className="space-y-4">
+                    <button
+                      type="submit"
+                      disabled={isLoading}
+                      className="w-full bg-black dark:bg-white dark:text-black text-white rounded-2xl py-4 font-bold text-lg shadow-xl transition-all flex items-center justify-center gap-2"
+                    >
+                      {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : "Verify & Login"}
+                    </button>
+                    <button 
+                      type="button"
+                      className="w-full text-sm text-gray-500 dark:text-gray-400 hover:text-blue-600 transition-colors"
+                      onClick={handleSendOtp}
+                    >
+                      Didn&apos;t receive code? Resend
+                    </button>
+                  </div>
+                </form>
+              )
+            ) : (
+              // Portal Login Form
+              <form onSubmit={handlePortalLogin} className="space-y-6 animate-in slide-in-from-right duration-300">
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-gray-700 dark:text-gray-300 ml-1">Email Address</label>
                     <input
-                      type="tel"
-                      placeholder="Enter 10 digit number"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      className="block w-full pl-11 pr-4 py-4 bg-gray-50 dark:bg-zinc-800 border-2 border-transparent focus:border-blue-500 dark:focus:border-blue-500 rounded-2xl outline-none transition-all text-lg font-medium tracking-wide"
+                      type="email"
+                      placeholder="Enter your email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="block w-full px-4 py-4 bg-gray-50 dark:bg-zinc-800 border-2 border-transparent focus:border-blue-500 dark:focus:border-blue-500 rounded-2xl outline-none transition-all text-lg font-medium tracking-wide"
+                      required
                     />
                   </div>
-                  {error && <p className="text-red-500 text-xs mt-1 ml-1">{error}</p>}
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-gray-700 dark:text-gray-300 ml-1">Password</label>
+                    <input
+                      type="password"
+                      placeholder="Enter your password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="block w-full px-4 py-4 bg-gray-50 dark:bg-zinc-800 border-2 border-transparent focus:border-blue-500 dark:focus:border-blue-500 rounded-2xl outline-none transition-all text-lg font-medium tracking-wide"
+                      required
+                    />
+                  </div>
                 </div>
+
+                {error && <p className="text-red-500 text-sm text-center font-medium">{error}</p>}
 
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-2xl py-4 font-bold text-lg shadow-lg shadow-blue-500/20 transition-all flex items-center justify-center gap-2 group"
+                  className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-2xl py-4 font-bold text-lg shadow-lg shadow-blue-500/20 transition-all flex items-center justify-center gap-2"
                 >
-                  {isLoading ? (
-                    <Loader2 className="w-6 h-6 animate-spin" />
-                  ) : (
-                    <>
-                      Send OTP <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                    </>
-                  )}
+                  {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : "Login"}
                 </button>
-              </form>
-            ) : (
-              <form onSubmit={handleVerifyOtp} className="space-y-8 animate-in slide-in-from-right duration-300">
-                <div className="text-center space-y-2">
-                  <div className="inline-flex items-center gap-2 text-blue-600 bg-blue-50 dark:bg-blue-900/20 px-4 py-2 rounded-full text-sm font-semibold">
-                    <CheckCircle2 className="w-4 h-4" /> Code sent to {phone}
-                  </div>
-                  <button onClick={() => setStep(1)} className="block w-full text-xs text-blue-500 hover:underline">Change number?</button>
-                </div>
-
-                <div className="flex justify-between gap-3">
-                  {otp.map((digit, idx) => (
-                    <input
-                      key={idx}
-                      id={`otp-${idx}`}
-                      type="text"
-                      maxLength={1}
-                      value={digit}
-                      onChange={(e) => handleOtpChange(idx, e.target.value)}
-                      className="w-16 h-16 text-center text-3xl font-bold bg-gray-50 dark:bg-zinc-800 border-2 border-transparent focus:border-blue-500 rounded-2xl outline-none transition-all"
-                    />
-                  ))}
-                </div>
-
-                {error && <p className="text-red-500 text-center text-sm font-medium">{error}</p>}
-
-                <div className="space-y-4">
-                  <button
-                    type="submit"
-                    disabled={isLoading}
-                    className="w-full bg-black dark:bg-white dark:text-black text-white rounded-2xl py-4 font-bold text-lg shadow-xl transition-all flex items-center justify-center gap-2"
-                  >
-                    {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : "Verify & Login"}
-                  </button>
-                  <button 
-                    type="button"
-                    className="w-full text-sm text-gray-500 dark:text-gray-400 hover:text-blue-600 transition-colors"
-                    onClick={handleSendOtp}
-                  >
-                    Didn&apos;t receive code? Resend
-                  </button>
-                </div>
               </form>
             )}
           </div>
