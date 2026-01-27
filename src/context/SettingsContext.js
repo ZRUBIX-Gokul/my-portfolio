@@ -23,8 +23,6 @@ export const SettingsProvider = ({ children }) => {
     { id: "biomedical", name: "Bio-Medical Tickets", href: "/tickets/biomedical", type: "report" },
     { id: "maintenance_tickets", name: "Maintenance Tickets", href: "/tickets/maintenance", type: "report" },
     { id: "housekeeping_tickets", name: "House Keeping Tickets", href: "/tickets/housekeeping", type: "report" },
-    { id: "it", name: "IT Ticket Report", href: "/reports/it", type: "report" },
-    { id: "maintenance", name: "Maintenance Ticket Report", href: "/reports/maintenance", type: "report" },
     { id: "requested", name: "Requested Tickets Report", href: "/reports/requested", type: "report" },
     { id: "assigned", name: "Assigned Tickets Report", href: "/reports/assigned", type: "report" },
     { id: "completed", name: "Completed Tickets Report", href: "/reports/completed", type: "report" },
@@ -42,8 +40,6 @@ export const SettingsProvider = ({ children }) => {
       { id: "biomedical", name: "Bio-Medical Tickets", href: "/tickets/biomedical", type: "report" },
       { id: "maintenance_tickets", name: "Maintenance Tickets", href: "/tickets/maintenance", type: "report" },
       { id: "housekeeping_tickets", name: "House Keeping Tickets", href: "/tickets/housekeeping", type: "report" },
-      { id: "it", name: "IT Ticket Report", href: "/reports/it", type: "report" },
-      { id: "maintenance", name: "Maintenance Ticket Report", href: "/reports/maintenance", type: "report" },
       { id: "requested", name: "Requested Tickets Report", href: "/reports/requested", type: "report" },
       { id: "assigned", name: "Assigned Tickets Report", href: "/reports/assigned", type: "report" },
       { id: "completed", name: "Completed Tickets Report", href: "/reports/completed", type: "report" },
@@ -57,9 +53,12 @@ export const SettingsProvider = ({ children }) => {
         if (parsed.fontFamily) setFontFamily(parsed.fontFamily);
         if (parsed.backgroundColor) setBackgroundColor(parsed.backgroundColor);
         
-        // Merge saved layout with default layout to ensure new items (like 'closed') are added
+        // Merge saved layout with default layout
         if (parsed.sidebarLayout) {
-          const currentLayout = parsed.sidebarLayout.filter(i => i.id !== "edp");
+          // Filter out old/duplicate IDs
+          const currentLayout = parsed.sidebarLayout.filter(i => 
+            i.id !== "edp" && i.id !== "it" && i.id !== "maintenance"
+          );
           
           // Find items in defaultLayout that are missing from currentLayout
           const missingItems = defaultLayout.filter(
@@ -70,6 +69,7 @@ export const SettingsProvider = ({ children }) => {
         } else {
           setSidebarLayout(defaultLayout);
         }
+
       } catch (e) {
         console.error("Failed to parse settings", e);
         setSidebarLayout(defaultLayout);

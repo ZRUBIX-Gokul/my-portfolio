@@ -17,8 +17,10 @@ import {
   Download,
   ArrowUp,
   ArrowDown,
-  Search
+  Search,
+  Plus
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useTickets } from "@/context/TicketContext";
 import { useAuth } from "@/context/AuthContext";
 import { usePortalUsers } from "@/context/PortalUserContext";
@@ -83,6 +85,7 @@ const HeaderCell = ({ label, columnKey, width, sortConfig, onSort, onGroup, onHi
 export default function TicketMasterDetail({ title = "All Tickets", filterDept = null, filterStatus = null, moduleId = null }) {
   const { tickets, users, updateTicket, deleteTicket, addTicket } = useTickets();
   const { user } = useAuth();
+  const router = useRouter();
   const { hasPermission } = usePortalUsers();
 
   // Permission Checks
@@ -404,7 +407,12 @@ export default function TicketMasterDetail({ title = "All Tickets", filterDept =
 
   const handleCompleteStart = (ticket) => { 
       setSelectedTicketId(ticket.id); 
-      setEditData({ ...ticket, status: 'Completed', completedOn: new Date().toISOString().split('T')[0] }); 
+      setEditData({ 
+        ...ticket, 
+        status: 'Completed', 
+        completedOn: new Date().toISOString().split('T')[0],
+        completedBy: ticket.assignedTo // Set completedBy as the person who was assigned
+      }); 
       setIsCompleteOpen(true); 
   };
   const handleCompleteSave = async () => { 
@@ -513,7 +521,7 @@ export default function TicketMasterDetail({ title = "All Tickets", filterDept =
                </div>
            )}
 
-           <div className="flex justify-between items-center">
+            <div className="flex justify-between items-center">
               <div className="flex items-center gap-4">
                     {/* Columns Toggle */}
                     <DropdownMenu>
@@ -593,7 +601,21 @@ export default function TicketMasterDetail({ title = "All Tickets", filterDept =
                         </div>
                     )}
               </div>
-              
+
+              <div className="flex items-center gap-2">
+                   <button className="p-2 bg-gray-100 dark:bg-zinc-800 rounded-lg hover:bg-gray-200 dark:hover:bg-zinc-700 cursor-pointer transition-colors">
+                        <Search className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                   </button>
+                   <button 
+                      onClick={() => router.push('/tickets/new')}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg font-bold flex items-center gap-2 hover:bg-blue-700 cursor-pointer shadow-md transition-all active:scale-95"
+                   >
+                        <Plus className="w-5 h-5" /> Add
+                   </button>
+                   <button className="p-2 bg-gray-100 dark:bg-zinc-800 rounded-lg hover:bg-gray-200 dark:hover:bg-zinc-700 cursor-pointer transition-colors">
+                        <MoreHorizontal className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                   </button>
+              </div>
            </div>
       </div>
       

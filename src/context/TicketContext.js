@@ -1,6 +1,8 @@
 "use client";
 
 import { createContext, useContext, useState, useEffect } from "react";
+import { syncTicketToZoho } from "@/actions/zohoSync";
+
 
 const TicketContext = createContext();
 
@@ -124,25 +126,61 @@ export function TicketProvider({ children }) {
     return maxId + 1;
   };
 
-  const addTicket = (ticketData) => {
+  const addTicket = async (ticketData) => {
     const nextNo = getNextTicketNumber();
     const newTicket = {
       ...ticketData,
-      id: String(Date.now()), // Internal unique ID
-      ticketNo: String(nextNo), // Display ID (1, 2, 3...)
+      id: String(Date.now()), 
+      ticketNo: String(nextNo),
       status: "Requested",
       history: [{ action: "Created", date: new Date().toISOString(), user: "System" }]
     };
+    
+    // 1. Update State First
     setTickets((prev) => [newTicket, ...prev]);
+    
+    // 2. Sync to Zoho (Async)
+    syncTicketToZoho(newTicket, "INSERT").catch(err => 
+      console.error("Zoho Sync Failed on Add:", err)
+    );
   };
 
-  const updateTicket = (id, updates) => {
-    setTickets((prev) => prev.map(t => t.id === id ? { ...t, ...updates } : t));
+  const updateTicket = async (id, updates) => {
+    // 1. Calculate the updated ticket first
+    let updatedTicketToSync = null;
+
+    setTickets((prev) => {
+      const newList = prev.map(t => {
+        if (t.id === id) {
+          const updated = { ...t, ...updates };
+          updatedTicketToSync = updated; // Capture it
+          return updated;
+        }
+        return t;
+      });
+      return newList;
+    });
+
+    // 2. Call sync AFTER state update logic
+    if (updatedTicketToSync) {
+      console.log("Triggering Zoho Update for:", id);
+      syncTicketToZoho(updatedTicketToSync, "UPDATE").catch(err => 
+        console.error("Zoho Sync Failed on Update:", err)
+      );
+    }
   };
 
-  const deleteTicket = (id) => {
+  const deleteTicket = async (id) => {
+    const ticketToDelete = tickets.find(t => t.id === id);
     setTickets((prev) => prev.filter(t => t.id !== id));
+    
+    if (ticketToDelete) {
+      syncTicketToZoho({ id }, "DELETE").catch(err => 
+        console.error("Zoho Sync Failed on Delete:", err)
+      );
+    }
   };
+
 
   const addUser = (userData) => {
     const newUser = { ...userData, id: String(Date.now()) };
