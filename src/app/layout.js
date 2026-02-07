@@ -6,7 +6,7 @@ import { Sidebar } from "@/components/Sidebar";
 import { TicketProvider } from "@/context/TicketContext";
 import { SettingsProvider } from "@/context/SettingsContext";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
-import { PortalUserProvider } from "@/context/PortalUserContext";
+import { PortalUserProvider, usePortalUsers } from "@/context/PortalUserContext";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 
@@ -47,7 +47,8 @@ export default function RootLayout({ children }) {
 }
 
 function AppContent({ children }) {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, user } = useAuth();
+  const { getUserModules, isLoaded: portalLoaded } = usePortalUsers();
   const pathname = usePathname();
   const router = useRouter();
 
@@ -57,10 +58,41 @@ function AppContent({ children }) {
     }
   }, [isAuthenticated, loading, pathname, router]);
 
-  // Handle protected routes
-  if (loading) return null;
+  // Route guarding for Portal Users
+  useEffect(() => {
+    if (!loading && portalLoaded && isAuthenticated && user?.isPortalUser) {
+      // Don't guard public or setup routes
+      if (pathname === "/login" || pathname.startsWith("/portal/setup")) return;
 
-  if (!isAuthenticated && pathname !== "/login") {
+      const allowedModules = getUserModules(user.id);
+      
+      // Check if current pathname is allowed
+      const isAllowed = allowedModules.some(module => {
+        if (module.exact) {
+          return module.route === pathname;
+        }
+        return pathname.startsWith(module.route) && module.route !== "/";
+      });
+
+      // Special case for dashboard: if "/" is not explicitly allowed, check if any other module is allowed
+      if (pathname === "/" && !isAllowed && allowedModules.length > 0) {
+        // Redirect to the first allowed module
+        router.replace(allowedModules[0].route);
+        return;
+      }
+
+      // If not allowed and not already redirecting from dashboard
+      if (!isAllowed && pathname !== "/") {
+         // Redirect to dashboard (which will then redirect to first allowed if needed) or login
+         router.replace("/");
+      }
+    }
+  }, [pathname, user, isAuthenticated, loading, portalLoaded, getUserModules, router]);
+
+  // Handle protected routes
+  if (loading || (isAuthenticated && user?.isPortalUser && !portalLoaded)) return null;
+
+  if (!isAuthenticated && pathname !== "/login" && !pathname.startsWith("/portal/setup")) {
     return null; // Will redirect via useEffect
   }
 

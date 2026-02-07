@@ -1,5 +1,8 @@
 "use client";
 
+import { useTickets } from "@/context/TicketContext";
+import { useAuth } from "@/context/AuthContext";
+import { usePortalUsers } from "@/context/PortalUserContext";
 import { 
   FileQuestion, 
   Users, 
@@ -9,10 +12,11 @@ import {
   Wrench,
   Brush
 } from "lucide-react";
-import { useTickets } from "@/context/TicketContext";
 
 export default function Dashboard() {
   const { getStats } = useTickets();
+  const { user } = useAuth();
+  const { getUserModules } = usePortalUsers();
   const { totalRequested, totalWIP, totalCompleted, deptStats } = getStats();
 
   const stats = [
@@ -39,12 +43,17 @@ export default function Dashboard() {
     }
   ];
 
-  const departmentStatsDisplay = [
-    { name: "Bio-Medical", icon: Activity, ...deptStats["Bio-Medical"] },
-    { name: "ICT", icon: Monitor, ...deptStats["ICT"] },
-    { name: "Maintenance", icon: Wrench, ...deptStats["Maintenance"] },
-    { name: "House Keeping", icon: Brush, ...deptStats["House Keeping"] },
+  const allDepts = [
+    { name: "Bio-Medical", id: "biomedical_tickets", icon: Activity, ...deptStats["Bio-Medical"] },
+    { name: "ICT", id: "ict_tickets", icon: Monitor, ...deptStats["ICT"] },
+    { name: "Maintenance", id: "maintenance_tickets", icon: Wrench, ...deptStats["Maintenance"] },
+    { name: "House Keeping", id: "housekeeping_tickets", icon: Brush, ...deptStats["House Keeping"] },
   ];
+
+  // Filter departments for portal users
+  const departmentStatsDisplay = user?.isPortalUser 
+    ? allDepts.filter(dept => getUserModules(user.id).some(m => m.id === dept.id || m.id === "all_tickets"))
+    : allDepts;
 
   return (
     <div className="space-y-8">

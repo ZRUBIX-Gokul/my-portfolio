@@ -60,30 +60,44 @@ export default function UserManagementPage() {
       try {
         await sendEmail({
           to: portalFormData.email,
-          subject: "Invitation to Ticketing System Portal",
+          subject: "Invitation: Set Up Your Ticketing System Account",
           html: `
-            <div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 10px; max-width: 600px;">
-              <h2 style="color: #2563eb;">You're Invited to the Ticketing System</h2>
-              <p>Hello,</p>
-              <p>You have been invited to access our Ticketing System portal with <strong>${permissionSet?.name}</strong> permissions.</p>
-              
-              <div style="background: #f3f4f6; padding: 15px; border-radius: 8px; margin: 20px 0;">
-                <p style="margin: 0; font-size: 14px; color: #666;">Click the button below to set up your account:</p>
+            <div style="font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 40px 20px; background-color: #f8fafc; color: #1e293b; line-height: 1.5;">
+              <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);">
+                <div style="background-color: #2563eb; padding: 32px; text-align: center;">
+                  <div style="width: 48px; height: 48px; background-color: rgba(255, 255, 255, 0.2); border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 16px;">
+                    <span style="font-size: 24px; font-weight: bold; color: white;">Z</span>
+                  </div>
+                  <h1 style="color: white; margin: 0; font-size: 24px; font-weight: 800; letter-spacing: -0.025em;">Ticketing System</h1>
+                </div>
+                
+                <div style="padding: 40px 32px;">
+                  <h2 style="margin-top: 0; font-size: 20px; font-weight: 700; color: #0f172a;">Account Invitation</h2>
+                  <p style="font-size: 16px; color: #475569; margin-bottom: 24px;">Hello there,</p>
+                  <p style="font-size: 16px; color: #475569; margin-bottom: 24px;">
+                    You have been invited to join the Ticketing System portal. Your account has been pre-configured with <strong>${permissionSet?.name}</strong> permissions.
+                  </p>
+                  
+                  <div style="margin: 32px 0; text-align: center;">
+                    <a href="${invitationLink}" style="display: inline-block; background-color: #2563eb; color: #ffffff; font-weight: 600; font-size: 16px; padding: 14px 32px; border-radius: 10px; text-decoration: none; transition: background-color 0.2s;">
+                      Set Up Your Account
+                    </a>
+                  </div>
+                  
+                  <p style="font-size: 14px; color: #64748b; text-align: center; margin-top: 32px;">
+                    Or copy and paste this link in your browser:
+                  </p>
+                  <div style="background-color: #f1f5f9; padding: 12px; border-radius: 8px; font-size: 12px; color: #2563eb; word-break: break-all; text-align: center; border: 1px solid #e2e8f0;">
+                    ${invitationLink}
+                  </div>
+                </div>
+                
+                <div style="padding: 24px 32px; background-color: #f8fafc; border-top: 1px solid #f1f5f9; text-align: center;">
+                  <p style="font-size: 12px; color: #94a3b8; margin: 0;">
+                    This is an automated message. Please do not reply to this email.
+                  </p>
+                </div>
               </div>
-              
-              <div style="text-align: center; margin: 30px 0;">
-                <a href="${invitationLink}" style="background: #2563eb; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: 600;">
-                  Set Up Your Account
-                </a>
-              </div>
-              
-              <p style="font-size: 12px; color: #999; margin-top: 30px;">
-                Or copy and paste this link in your browser:<br/>
-                <span style="color: #2563eb; word-break: break-all;">${invitationLink}</span>
-              </p>
-              
-              <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
-              <p style="font-size: 0.8em; color: #666;">This is an automated invitation from the Ticketing System.</p>
             </div>
           `
         });
@@ -340,7 +354,7 @@ export default function UserManagementPage() {
                   {portalUsers.length === 0 ? (
                     <tr>
                       <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
-                        No portal users yet. Click "Add Portal User" to invite someone.
+                        No portal users yet. Click &quot;Add Portal User&quot; to invite someone.
                       </td>
                     </tr>
                   ) : (

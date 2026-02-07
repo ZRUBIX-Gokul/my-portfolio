@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect } from "react";
+import { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { syncTicketToZoho } from "@/actions/zohoSync";
 
 
@@ -29,7 +29,24 @@ export function TicketProvider({ children }) {
     const savedUsers = localStorage.getItem("users");
 
     if (savedTickets) {
-      setTickets(JSON.parse(savedTickets));
+      let ticketsData = JSON.parse(savedTickets);
+      
+      // ONE-TIME MIGRATION: Convert old 101-110 numbering to 1-10 sequence
+      // This is to address the user's request to start from 1 instead of 101
+      const needsFix = ticketsData.some(t => t.ticketNo === "101" || t.ticketNo === "105");
+      if (needsFix) {
+          ticketsData = ticketsData.map(t => {
+              const num = parseInt(t.ticketNo, 10);
+              if (num >= 101 && num <= 110) {
+                  const newNum = String(num - 100);
+                  return { ...t, id: newNum, ticketNo: newNum };
+              }
+              return t;
+          });
+          localStorage.setItem("tickets", JSON.stringify(ticketsData));
+      }
+
+      setTickets(ticketsData);
     } else {
       setTickets(initialTickets);
     }
@@ -45,8 +62,8 @@ export function TicketProvider({ children }) {
   // Initial Tickets for Demo/Testing
   const initialTickets = [
     {
-      id: "101",
-      ticketNo: "101",
+      id: "1",
+      ticketNo: "1",
       ticketDate: new Date().toISOString().split('T')[0],
       requestedBy: "Nithilla",
       department: "HR",
@@ -57,8 +74,8 @@ export function TicketProvider({ children }) {
       history: []
     },
     {
-      id: "102",
-      ticketNo: "102",
+      id: "2",
+      ticketNo: "2",
       ticketDate: new Date().toISOString().split('T')[0],
       requestedBy: "Sanjay",
       department: "Biomedical",
@@ -71,8 +88,8 @@ export function TicketProvider({ children }) {
       history: []
     },
     {
-      id: "103",
-      ticketNo: "103",
+      id: "3",
+      ticketNo: "3",
       ticketDate: new Date().toISOString().split('T')[0],
       requestedBy: "Admin User",
       department: "IT",
@@ -83,8 +100,8 @@ export function TicketProvider({ children }) {
       history: []
     },
     {
-      id: "104",
-      ticketNo: "104",
+      id: "4",
+      ticketNo: "4",
       ticketDate: new Date().toISOString().split('T')[0],
       requestedBy: "John Doe",
       department: "ICT",
@@ -115,23 +132,21 @@ export function TicketProvider({ children }) {
 
   // --- Actions ---
 
-  const getNextTicketNumber = () => {
+  const getNextTicketNumber = useCallback(() => {
     if (tickets.length === 0) return 1;
-    // Extract numbers from IDs assuming format "1", "2", etc.
-    // If mixed formats exist, this might be tricky, but we'll enforce numeric IDs now.
     const maxId = tickets.reduce((max, t) => {
         const num = parseInt(t.ticketNo, 10);
         return !isNaN(num) && num > max ? num : max;
     }, 0);
     return maxId + 1;
-  };
+  }, [tickets]);
 
   const addTicket = async (ticketData) => {
     const nextNo = getNextTicketNumber();
     const newTicket = {
       ...ticketData,
-      id: String(Date.now()), 
-      ticketNo: String(nextNo),
+      id: String(Date.now()), // Unique ID for Zoho/Database
+      ticketNo: String(nextNo), // Sequential No for User
       status: "Requested",
       history: [{ action: "Created", date: new Date().toISOString(), user: "System" }]
     };
@@ -140,9 +155,16 @@ export function TicketProvider({ children }) {
     setTickets((prev) => [newTicket, ...prev]);
     
     // 2. Sync to Zoho (Async)
-    syncTicketToZoho(newTicket, "INSERT").catch(err => 
-      console.error("Zoho Sync Failed on Add:", err)
-    );
+    // 2. Sync to Zoho (Wait for it)
+    try {
+        const result = await syncTicketToZoho(newTicket, "INSERT");
+        if (result.success) console.log("Zoho Sync Success for Ticket #", nextNo);
+        else console.error("Zoho Sync Failed for Ticket #", nextNo, result.error);
+    } catch (err) {
+        console.error("Zoho Sync Error for Ticket #", nextNo, err);
+    }
+
+    return newTicket;
   };
 
   const updateTicket = async (id, updates) => {
@@ -163,10 +185,14 @@ export function TicketProvider({ children }) {
 
     // 2. Call sync AFTER state update logic
     if (updatedTicketToSync) {
-      console.log("Triggering Zoho Update for:", id);
-      syncTicketToZoho(updatedTicketToSync, "UPDATE").catch(err => 
-        console.error("Zoho Sync Failed on Update:", err)
-      );
+        console.log("Triggering Zoho Update for Ticket No:", updatedTicketToSync.ticketNo);
+        try {
+            const res = await syncTicketToZoho(updatedTicketToSync, "UPDATE");
+            if (res.success) console.log("Zoho Update Success #", updatedTicketToSync.id);
+            else console.error("Zoho Update Failed #", updatedTicketToSync.id, res.error);
+        } catch (err) {
+            console.error("Zoho Update Exception:", err);
+        }
     }
   };
 
@@ -227,7 +253,8 @@ export function TicketProvider({ children }) {
       addUser, 
       deleteUser,
       getStats,
-      getNextTicketNumber 
+      getNextTicketNumber,
+      isLoaded 
     }}>
       {children}
     </TicketContext.Provider>

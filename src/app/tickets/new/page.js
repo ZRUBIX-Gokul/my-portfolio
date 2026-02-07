@@ -3,22 +3,21 @@
 import { useTickets } from "@/context/TicketContext";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { CheckCircle } from "lucide-react";
 import { sendEmail } from "@/actions/emailActions";
 
 export default function NewTicketPage() {
-  const { addTicket, users, getNextTicketNumber } = useTickets();
+  const { addTicket, users, getNextTicketNumber, isLoaded } = useTickets();
   const router = useRouter();
   const [success, setSuccess] = useState(false);
-  const [nextId, setNextId] = useState("");
 
-  // Since context loads async from localStorage, we should use an effect to get the number
-  useEffect(() => {
-      if (getNextTicketNumber) {
-        setNextId(String(getNextTicketNumber()));
-      }
-  }, [getNextTicketNumber]);
+  const nextId = useMemo(() => {
+    if (isLoaded && getNextTicketNumber) {
+      return String(getNextTicketNumber());
+    }
+    return "";
+  }, [isLoaded, getNextTicketNumber]);
 
   const { register, handleSubmit, watch, reset } = useForm({
     defaultValues: {
@@ -31,38 +30,32 @@ export default function NewTicketPage() {
   const requesters = users.filter(u => u.role === "Requester" || u.role === "Admin");
   
   const onSubmit = async (data) => {
-    // Determine To Dept based on Work Order Type Selection if needed, or just use input
-    // Assuming simple mapping for this demo
-    
-    const newTicket = {
+    // Only pass the form data, let context handle IDs and Dates to ensure consistency
+    const ticketData = {
       ...data,
-      id: String(Date.now()), // Using timestamp as internal ID
       ticketNo: nextId,
-      status: "Requested",
-      logs: [{ action: "Created", date: new Date().toISOString(), user: "System" }],
-      ticketDate: new Date().toISOString().split('T')[0]
     };
     
     // 1. Add to Local Context (Instant)
-    addTicket(newTicket);
+    const createdTicket = await addTicket(ticketData);
 
-    // 2. Send Email Notification to Department Staff
-    const deptStaff = users.find(u => u.department === newTicket.toDept && u.role === "Staff");
+    // 2. Send Email Notification to Department Staff (using the final ticket from context)
+    const deptStaff = users.find(u => u.department === createdTicket.toDept && u.role === "Staff");
     if (deptStaff && deptStaff.email) {
         sendEmail({
             to: deptStaff.email,
-            subject: `New Ticket Requested: #${newTicket.ticketNo}`,
+            subject: `New Ticket Requested: #${createdTicket.ticketNo}`,
             html: `
                 <div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
                     <h2 style="color: #2563eb;">New Support Request</h2>
                     <p>Hello <strong>${deptStaff.name}</strong>,</p>
                     <p>A new ticket has been requested for your department.</p>
                     <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
-                    <p><strong>Ticket No:</strong> #${newTicket.ticketNo}</p>
-                    <p><strong>Date:</strong> ${newTicket.ticketDate}</p>
-                    <p><strong>From:</strong> ${newTicket.requestedBy} (${newTicket.department})</p>
-                    <p><strong>Priority:</strong> <span style="color: ${newTicket.priority === 'High' ? 'red' : 'inherit'}; font-weight: bold;">${newTicket.priority}</span></p>
-                    <p><strong>Description:</strong> ${newTicket.description}</p>
+                    <p><strong>Ticket No:</strong> #${createdTicket.ticketNo}</p>
+                    <p><strong>Date:</strong> ${createdTicket.ticketDate}</p>
+                    <p><strong>From:</strong> ${createdTicket.requestedBy} (${createdTicket.department})</p>
+                    <p><strong>Priority:</strong> <span style="color: ${createdTicket.priority === 'High' ? 'red' : 'inherit'}; font-weight: bold;">${createdTicket.priority}</span></p>
+                    <p><strong>Description:</strong> ${createdTicket.description}</p>
                     <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
                     <p style="font-size: 0.8em; color: #666;">This is an automated notification from the Ticketing System.</p>
                 </div>

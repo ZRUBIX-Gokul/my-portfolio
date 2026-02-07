@@ -26,7 +26,7 @@ async function getAccessToken() {
 }
 
 export async function syncTicketToZoho(ticket, action = "INSERT") {
-  console.log(`--- Zoho Sync Version 3.3: ${action} for Ticket ${ticket.id} ---`);
+  console.log(`--- Zoho Sync Version 3.3: ${action} for Ticket No: ${ticket.ticketNo} (Internal ID: ${ticket.id}) ---`);
   
   const accessToken = await getAccessToken();
   if (!accessToken) return { success: false, error: "Auth failed" };
@@ -89,16 +89,21 @@ export async function syncTicketToZoho(ticket, action = "INSERT") {
     }
 
     console.log(`Calling Zoho [${method}]: ${url}`);
+    
+    // Log the JSON columns for debugging
+    if (method === "POST" || method === "PUT") {
+        console.log("Column Data Payload:", JSON.stringify(columnsData, null, 2));
+    }
 
     const response = await fetch(url, fetchOptions);
     const status = response.status;
     const responseText = await response.text();
     
+    console.log(`Zoho Response [${status}]:`, responseText);
+
     if (response.ok) {
-        console.log(`Zoho Sync Success [${action}]`);
         return { success: true };
     } else {
-        console.error(`Status ${status} Error:`, responseText);
         return { success: false, error: responseText };
     }
   } catch (error) {
